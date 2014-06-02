@@ -1,0 +1,33 @@
+#!/bin/bash
+
+main() {
+	local source_image="$1"; shift
+	local release_tag="$1"; shift
+	local environ="$@"
+
+	if [[ "$environ" == "" ]]; then
+		echo "No environment specified"
+		exit 1
+	fi
+
+	if [[ "$environ" == "-" ]]; then
+		environ="$(cat)"
+	else
+		environ="$(echo -e "${environ/ /\n}")"
+	fi
+
+	local dir=$(mktemp -dt "$(basename $0).XXXX")
+	echo "$dir"
+	trap "rm -rf $dir" EXIT
+
+	local dockerfile="$dir/Dockerfile"
+	echo "FROM $source_image" > "$dockerfile"
+
+	while IFS="=" read key value; do
+		echo "ENV" "$key" "$value" >> "$dockerfile"
+	done <<< "$environ"
+
+	cd "$dir" && docker build -t "$release_tag" .
+}
+
+[[ "$0" == "$BASH_SOURCE" ]] && main $@
